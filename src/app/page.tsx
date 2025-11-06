@@ -155,7 +155,7 @@ export default function Home() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* 왼쪽: 단일 바코드 생성 */}
           <div className="bg-white rounded-2xl shadow-2xl p-8">
-            <h2 className="text-2xl font-bold mb-6 text-gray-800">1개일때</h2>
+            <h2 className="text-2xl font-bold mb-6 text-gray-800">1개 생성</h2>
 
         {/* 입력 폼 */}
         <div className="space-y-6 mb-8">
