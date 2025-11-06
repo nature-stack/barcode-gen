@@ -2,18 +2,17 @@
 
 import { useState } from 'react';
 import { validateBarcodeInput, type Symbology } from '@/lib/barcode-utils';
+import BarcodeMultiGenerator from './components/BarcodeMultiGenerator';
+import type { BarcodeSettings } from '@/types/barcode';
 
 export default function Home() {
   const [contents, setContents] = useState('8809560223070');
   const [symbology, setSymbology] = useState<Symbology>('ean13');
   const [quietZone, setQuietZone] = useState(10);
-  const [fontSize, setFontSize] = useState(35);
+  const [fontSize, setFontSize] = useState(31);
   const [offsetLeft, setOffsetLeft] = useState(0);
   const [offsetMiddle, setOffsetMiddle] = useState(0);
   const [offsetRight, setOffsetRight] = useState(0);
-  const [offsetBoxLeft, setOffsetBoxLeft] = useState(0);
-  const [offsetBoxMiddle, setOffsetBoxMiddle] = useState(0);
-  const [offsetBoxRight, setOffsetBoxRight] = useState(0);
   const [svgPreview, setSvgPreview] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -53,9 +52,6 @@ export default function Home() {
           offsetLeft,
           offsetMiddle,
           offsetRight,
-          offsetBoxLeft,
-          offsetBoxMiddle,
-          offsetBoxRight,
         }),
       });
 
@@ -118,9 +114,6 @@ export default function Home() {
           offsetLeft,
           offsetMiddle,
           offsetRight,
-          offsetBoxLeft,
-          offsetBoxMiddle,
-          offsetBoxRight,
         }),
       });
 
@@ -144,12 +137,25 @@ export default function Home() {
     }
   };
 
+  const barcodeSettings: BarcodeSettings = {
+    quietZone,
+    fontSize,
+    offsetLeft,
+    offsetMiddle,
+    offsetRight,
+  };
+
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-4xl w-full">
+    <main className="min-h-screen p-4 bg-gray-50">
+      <div className="max-w-7xl mx-auto">
         <h1 className="text-4xl font-bold text-center mb-8 text-gray-800">
           Barcode Generator For Baco
         </h1>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* 왼쪽: 단일 바코드 생성 */}
+          <div className="bg-white rounded-2xl shadow-2xl p-8">
+            <h2 className="text-2xl font-bold mb-6 text-gray-800">1개일때</h2>
 
         {/* 입력 폼 */}
         <div className="space-y-6 mb-8">
@@ -238,9 +244,6 @@ export default function Home() {
                 setOffsetLeft(0);
                 setOffsetMiddle(0);
                 setOffsetRight(0);
-                setOffsetBoxLeft(0);
-                setOffsetBoxMiddle(0);
-                setOffsetBoxRight(0);
               }}
               className="text-sm text-purple-600 hover:text-purple-700 font-medium"
             >
@@ -323,85 +326,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* 흰색 박스 위치 조정 */}
-          <div className="border-t border-gray-200 pt-6">
-            <h3 className="text-md font-semibold text-gray-800 mb-4">흰색 박스 위치 미세 조정 (px)</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  왼쪽 박스: {offsetBoxLeft.toFixed(1)}px
-                </label>
-                <input
-                  type="range"
-                  min="-50"
-                  max="50"
-                  step="0.5"
-                  value={offsetBoxLeft}
-                  onChange={(e) => setOffsetBoxLeft(Number(e.target.value))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
-                />
-                <input
-                  type="number"
-                  min="-50"
-                  max="50"
-                  step="0.5"
-                  value={offsetBoxLeft}
-                  onChange={(e) => setOffsetBoxLeft(Number(e.target.value))}
-                  className="mt-2 w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  중앙 박스: {offsetBoxMiddle.toFixed(1)}px
-                </label>
-                <input
-                  type="range"
-                  min="-50"
-                  max="50"
-                  step="0.5"
-                  value={offsetBoxMiddle}
-                  onChange={(e) => setOffsetBoxMiddle(Number(e.target.value))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
-                />
-                <input
-                  type="number"
-                  min="-50"
-                  max="50"
-                  step="0.5"
-                  value={offsetBoxMiddle}
-                  onChange={(e) => setOffsetBoxMiddle(Number(e.target.value))}
-                  className="mt-2 w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  오른쪽 박스: {offsetBoxRight.toFixed(1)}px
-                </label>
-                <input
-                  type="range"
-                  min="-50"
-                  max="50"
-                  step="0.5"
-                  value={offsetBoxRight}
-                  onChange={(e) => setOffsetBoxRight(Number(e.target.value))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-purple-600"
-                />
-                <input
-                  type="number"
-                  min="-50"
-                  max="50"
-                  step="0.5"
-                  value={offsetBoxRight}
-                  onChange={(e) => setOffsetBoxRight(Number(e.target.value))}
-                  className="mt-2 w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-          </div>
-
           <button
             onClick={handleGenerate}
             disabled={loading}
@@ -453,6 +377,13 @@ export default function Home() {
           </div>
         )}
 
+          </div>
+
+          {/* 오른쪽: 여러 개 바코드 생성 */}
+          <div className="bg-white rounded-2xl shadow-2xl p-8">
+            <BarcodeMultiGenerator settings={barcodeSettings} />
+          </div>
+        </div>
       </div>
     </main>
   );

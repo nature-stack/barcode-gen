@@ -126,120 +126,133 @@ function addFontStyle(svg: string): string {
 }
 
 /**
- * EAN-13 처리: 가드바 길이 차별화 + 바코드 그룹화 + 숫자 그룹 추가
+ * EAN-13 인코딩 패턴
  */
-function processEAN13(svg: string, text: string, fontSize: number = 35, offsetLeft: number = 0, offsetMiddle: number = 0, offsetRight: number = 0): string {
+const EAN13_L_CODES = [
+  '0001101', '0011001', '0010011', '0111101', '0100011',
+  '0110001', '0101111', '0111011', '0110111', '0001011'
+];
+
+const EAN13_G_CODES = [
+  '0100111', '0110011', '0011011', '0100001', '0011101',
+  '0111001', '0000101', '0010001', '0001001', '0010111'
+];
+
+const EAN13_R_CODES = [
+  '1110010', '1100110', '1101100', '1000010', '1011100',
+  '1001110', '1010000', '1000100', '1001000', '1110100'
+];
+
+const EAN13_FIRST_DIGIT_PATTERNS = [
+  'LLLLLL', 'LLGLGG', 'LLGGLG', 'LLGGGL', 'LGLLGG',
+  'LGGLLG', 'LGGGLL', 'LGLGLG', 'LGLGGL', 'LGGLGL'
+];
+
+/**
+ * EAN-13 바코드를 직접 생성 (bwip-js 사용 안 함)
+ */
+function generateEAN13Barcode(text: string, fontSize: number = 31, offsetLeft: number = 0, offsetMiddle: number = 0, offsetRight: number = 0): string {
   try {
-    const viewBoxMatch = svg.match(/viewBox="([^"]+)"/);
-    if (!viewBoxMatch) return svg;
+    // EAN-13은 13자리여야 함
+    if (text.length !== 13) {
+      throw new Error('EAN-13 must be 13 digits');
+    }
 
-    const viewBoxValues = viewBoxMatch[1].split(' ');
-    const vbWidth = parseFloat(viewBoxValues[2]);
-    const vbHeight = parseFloat(viewBoxValues[3]);
+    // 상수 정의
+    const SVG_WIDTH = 346;
+    const SVG_HEIGHT = 220;
+    const BAR_WIDTH = 3;
+    const GUARD_BAR_HEIGHT = 200;
+    const DATA_BAR_HEIGHT = 165;
+    const TEXT_Y = 185;
+    const START_X = 30;
 
-    // 모든 path 추출
-    const pathMatches = Array.from(svg.matchAll(/<path[^>]*d="([^"]+)"[^>]*\/>/g));
-    
-    // 각 path를 분석하고 재구성
-    const newPaths: string[] = [];
-    
-    pathMatches.forEach((match) => {
-      const fullPath = match[0];
-      const dAttr = match[1];
-      
-      // M 커맨드들을 분리 (한 path에 여러 선이 있을 수 있음)
-      const lines = dAttr.split('M').filter(s => s.trim());
-      
-      lines.forEach(line => {
-        const coords = line.match(/([0-9.]+)\s+([0-9.]+)L([0-9.]+)\s+([0-9.]+)/);
-        if (!coords) return;
-        
-        const x1 = parseFloat(coords[1]);
-        const y1 = parseFloat(coords[2]);
-        const x2 = parseFloat(coords[3]);
-        const y2 = parseFloat(coords[4]);
-        
-        // X 위치로 가드바 판단
-        const xRatio = x1 / vbWidth;
-        const isGuard = 
-          xRatio < 0.06 ||  // 왼쪽 가드
-          (xRatio > 0.46 && xRatio < 0.54) ||  // 중앙 가드
-          xRatio > 0.94;  // 오른쪽 가드
-        
-        // 가드바가 아니면 위쪽을 20pt 짧게
-        const newY1 = isGuard ? y1 : y1 + 20;
-        
-        // stroke-width 추출
-        const widthMatch = fullPath.match(/stroke-width="([^"]+)"/);
-        const strokeWidth = widthMatch ? widthMatch[1] : '3';
-        
-        newPaths.push(`<path stroke="#000000" stroke-width="${strokeWidth}" d="M${x1} ${newY1}L${x2} ${y2}" />`);
-      });
-    });
+    // 첫 번째 숫자로 인코딩 패턴 결정
+    const firstDigit = parseInt(text[0]);
+    const pattern = EAN13_FIRST_DIGIT_PATTERNS[firstDigit];
 
-    // 기존 paths를 모두 제거하고 그룹으로 교체
-    let result = svg;
-    pathMatches.forEach((match) => {
-      result = result.replace(match[0], '');
-    });
-    
-    // 그룹화된 paths 추가
-    const groupedPaths = `
+    // 바코드 비트 문자열 생성
+    let barcodeBits = '101'; // Start guard
+
+    // 왼쪽 6자리 인코딩
+    for (let i = 0; i < 6; i++) {
+      const digit = parseInt(text[i + 1]);
+      if (pattern[i] === 'L') {
+        barcodeBits += EAN13_L_CODES[digit];
+      } else {
+        barcodeBits += EAN13_G_CODES[digit];
+      }
+    }
+
+    barcodeBits += '01010'; // Center guard
+
+    // 오른쪽 6자리 인코딩
+    for (let i = 0; i < 6; i++) {
+      const digit = parseInt(text[i + 7]);
+      barcodeBits += EAN13_R_CODES[digit];
+    }
+
+    barcodeBits += '101'; // End guard
+
+    // Compound path 생성
+    const pathSegments: string[] = [];
+    let currentX = START_X;
+
+    for (let i = 0; i < barcodeBits.length; i++) {
+      if (barcodeBits[i] === '1') {
+        // 가드바 판별: Start (0-2), Center (42-46), End (92-94)
+        const isGuard = (i >= 0 && i <= 2) || (i >= 42 && i <= 46) || (i >= 92 && i <= 94);
+        const barBottom = isGuard ? GUARD_BAR_HEIGHT : DATA_BAR_HEIGHT;
+
+        pathSegments.push(`M${currentX} 0L${currentX} ${barBottom}`);
+      }
+      currentX += BAR_WIDTH;
+    }
+
+    // 폰트 임베딩
+    const fontBase64 = getFontBase64();
+    const fontDataUrl = fontBase64 ? `data:font/truetype;charset=utf-8;base64,${fontBase64}` : '/fonts/ocrb/ocr-b-10-bt.ttf';
+
+    // SVG 생성
+    const svg = `<svg width="${SVG_WIDTH}" height="${SVG_HEIGHT}" viewBox="0 0 ${SVG_WIDTH} ${SVG_HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <style type="text/css">
+      @font-face {
+        font-family: 'OCR-B';
+        src: url(${fontDataUrl}) format('truetype');
+        font-weight: normal;
+        font-style: normal;
+      }
+    </style>
+  </defs>
+  <rect width="${SVG_WIDTH}" height="${SVG_HEIGHT}" fill="#FFFFFF"/>
   <g id="barcode-bars">
-${newPaths.map(p => `    ${p}`).join('\n')}
+    <path stroke="#000000" stroke-width="${BAR_WIDTH}" d="${pathSegments.join(' ')}" />
   </g>
-`;
-    
-    // </svg> 앞에 그룹 삽입
-    result = result.replace('</svg>', `${groupedPaths}</svg>`);
-    
-    // 숫자 그룹 추가
-    const firstDigit = text[0];
-    const leftGroup = text.substring(1, 7);
-    const rightGroup = text.substring(7, 13);
-
-    const textY = vbHeight - 2;
-    
-    // 왼쪽 첫 번째 숫자 (단일 text)
-    const firstDigitX = vbWidth * 0.06 + (-16) + offsetLeft;
-    const firstDigitGroup = `
   <g id="first-digit">
-    <text x="${firstDigitX}" y="${textY}" font-family="OCR-B, OCRB, 'OCR B', monospace" font-size="${fontSize - 1}" text-anchor="start" fill="#000000">${firstDigit}</text>
-  </g>`;
-
-    // 중앙 그룹 (단일 text)
-    const leftGroupStartX = vbWidth * 0.165 + 3.5 + offsetMiddle;
-    const leftGroupElement = `
+    <text x="${START_X - 16 - 5 + offsetLeft}" y="${TEXT_Y + 10}" font-family="OCR-B, OCRB, 'OCR B', monospace" font-size="${fontSize - 1}" text-anchor="start" fill="#000000">${text[0]}</text>
+  </g>
   <g id="left-group">
-    <text x="${leftGroupStartX}" y="${textY}" font-family="OCR-B, OCRB, 'OCR B', monospace" font-size="${fontSize}" letter-spacing="-0.025em" fill="#000000">${leftGroup}</text>
-  </g>`;
-
-    // 오른쪽 그룹 (단일 text)
-    const rightGroupStartX = vbWidth * 0.545 + 5 + offsetRight;
-    const rightGroupElement = `
+    <text x="${START_X + 27 - 17 + offsetMiddle}" y="${TEXT_Y + 10}" font-family="OCR-B, OCRB, 'OCR B', monospace" font-size="${fontSize}" letter-spacing="-0.025em" fill="#000000">${text.substring(1, 7)}</text>
+  </g>
   <g id="right-group">
-    <text x="${rightGroupStartX}" y="${textY}" font-family="OCR-B, OCRB, 'OCR B', monospace" font-size="${fontSize}" letter-spacing="-0.025em" fill="#000000">${rightGroup}</text>
-  </g>`;
+    <text x="${START_X + 174 - 25 + 3 + offsetRight}" y="${TEXT_Y + 10}" font-family="OCR-B, OCRB, 'OCR B', monospace" font-size="${fontSize}" letter-spacing="-0.025em" fill="#000000">${text.substring(7, 13)}</text>
+  </g>
+</svg>`;
 
-    // viewBox 높이를 텍스트 포함하도록 확장
-    const newHeight = vbHeight + 10;
-    result = result.replace(
-      /viewBox="([^"]+)"/,
-      `viewBox="${viewBoxValues[0]} ${viewBoxValues[1]} ${vbWidth} ${newHeight}"`
-    );
-    result = result.replace(
-      /height="[^"]+"/,
-      `height="${newHeight}"`
-    );
-    
-    // </svg> 앞에 텍스트 그룹 추가
-    result = result.replace('</svg>', `${firstDigitGroup}${leftGroupElement}${rightGroupElement}\n</svg>`);
-    
-    return result;
-  } catch (error) {
-    console.error('Error processing EAN13:', error);
     return svg;
+  } catch (error) {
+    console.error('Error generating EAN13:', error);
+    throw error;
   }
+}
+
+/**
+ * EAN-13 처리: 직접 생성된 바코드 반환
+ */
+function processEAN13(svg: string, text: string, fontSize: number = 31, offsetLeft: number = 0, offsetMiddle: number = 0, offsetRight: number = 0): string {
+  // bwip-js 결과 무시하고 직접 생성
+  return generateEAN13Barcode(text, fontSize, offsetLeft, offsetMiddle, offsetRight);
 }
 
 /**
