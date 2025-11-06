@@ -5,7 +5,7 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Free Barcode Generator (.AI)',
+  title: 'Barcode Generator For Baco',
   description: 'Generate barcode vector files compatible with Adobe Illustrator',
 }
 
